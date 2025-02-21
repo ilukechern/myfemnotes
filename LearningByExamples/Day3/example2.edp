@@ -1,0 +1,29 @@
+cout << mpirank << " out of " << mpisize << endl;
+
+int nn = 100;
+mesh Th = square(100, 100);
+// plot(Th, cmm="global mesh");
+
+load "metis"
+// load "scotch"
+fespace Ph(Th, P0);
+Ph pmsh;
+
+metisdual(pmsh[], Th, mpisize);
+// scotch(pmsh[], Th, mpisize);
+
+// plot(pmsh, cmm ="Total " + mpisize + " subdomains");
+
+include "macro_ddm.idp"
+{
+    f(mpirank == 0)
+    {
+        cout << Th.nt << endl;
+    }
+
+    DmeshCreate(Th);
+
+    cout <<"rank {" + mpirank + "} has " + Th.nt << " elements" << endl;
+
+    plotDmesh(Th, cmm="Distributed mesh");
+}

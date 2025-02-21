@@ -1,0 +1,41 @@
+int nn = 1200;
+
+int[int] ls = [1, 1, 1, 1, 1, 1];
+mesh Th = square(nn, nn, label=ls);
+
+if(mpirank == 0)
+{
+    cout << Th.nt << endl;
+}
+
+include "macro_ddm.idp"
+
+DmeshCreate(Th);
+
+cout <<"rank {" + mpirank + "} has " + Th.nt << " elements" << endl;
+
+// plotDmesh(Th, cmm="Distributed mesh");
+
+fespace Vh(Th, P1);
+
+func f = 1.0;
+varf vPoisson(u, v) = 
+                        int2d(Th) (dx(u)*dx(v) + dy(u)*dy(v))
+                    +   int2d(Th)(f*v)
+                    +   on(1, u = 0)
+                    ;
+
+load "PETSc"
+Mat A;
+MatCreate(Th, A, P1);
+
+A = vPoisson(Vh, Vh);
+real[int] rhs = vPoisson(0, Vh);
+
+Vh sol;
+sol[] = A^-1 * rhs;
+// plotD(Th, sol, cmm="disp");
+
+int[int] fforder = [1];
+savevtk("./output/poisson.vtu", Th, sol, dataname="u", order=fforder);
+

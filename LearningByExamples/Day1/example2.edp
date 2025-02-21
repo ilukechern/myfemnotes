@@ -1,0 +1,35 @@
+load "msh3"
+load "tetgen"
+load "medit"
+
+int nx=20;
+int nth=100;
+real xmin=1.,xmax=3.;
+
+border cc(t=0,2*pi){x=cos(t);y=sin(t);label=1;}
+mesh Thcircle = buildmesh(cc(nth));
+
+mesh Thcarre=square(nx,nth,[xmin+x*(xmax-xmin),2*pi*y]);
+
+func f1 = x;
+func f2 = cos(y);
+func f3 = sin(y);
+meshS Thsurf1=movemesh23(Thcarre,transfo=[f1,f2,f3],orientation=-1);
+
+meshS Thsurf2=movemesh23(Thcercle,transfo=[xmin,x,y],orientation=-1);
+meshS Thsurf3=movemesh23(Thcercle,transfo=[xmax,x,y],orientation=1);
+
+meshS Thsurf=Thsurf1+Thsurf2+Thsurf3;
+
+real voltet= (3-1)*pi*1;
+
+real[int] domaine = [1.5,0.,0.,1,voltet];
+mesh3 Th=tetg(Thsurf,switch="pqaaAAYYQ",nbofregions=1,regionlist=domaine);
+
+real vol=int3d(Th)(1.0);
+cout << "  Computed volume for this mesh = " << vol << endl;
+cout << " Volume of the cylinder is pi*r^2*h = " << voltet << endl;
+
+savemesh(Th,"cyl.mesh");
+
+medit("cyl",Th,wait=1);

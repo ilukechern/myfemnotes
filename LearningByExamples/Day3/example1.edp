@@ -1,0 +1,36 @@
+load "PETSc"
+
+int nn = 4;
+matrix diag = eye(nn);
+cout << diag << endl;
+
+real[int, int] B(4, 2);
+B = 0;
+B(0, 0) = 1;
+B(1, 1) = 1;
+B(2, 1) = 1;
+B(3, 0) = 1;
+cout << B << endl;
+
+{
+    matrix block = [[diag, B], [B', 0]];
+    block.CSR;
+
+    cout << block << endl;
+}
+
+matrix sp(B);
+cout << sp <<endl;
+
+{
+    matrix block = [[diag, sp], [sp', 0]];
+    block.CSR;
+
+    cout << block << endl;
+}
+
+{
+    Mat d2(diag);
+    Mat block = [[d2, B], [B', 0]];
+    ObjectView(block);
+}
