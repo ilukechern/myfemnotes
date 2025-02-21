@@ -1,0 +1,38 @@
+{
+    mesh sq = square(10, 10);
+    plot(sq, wait = true);
+}
+
+{
+    mesh sq = square(10, 100, [x, 4 * y]);
+    plot(sq, wait = true);
+}
+
+{
+    include "cube.idp"
+    mesh3 cb = cube(10, 10, 10);
+    plot(cb, wait = true);
+    medit("Cube", cb);
+}
+ 
+{
+    load "gmsh"
+    // gmsh -2 square.geo
+    mesh sq = gmshload("square.msh");
+
+    plot(sq, wait = true);
+    cout << labels(sq) << endl;
+}
+ 
+{
+    // gmsh -3 cube.geo -o cube.mesh
+    mesh3 cb = readmesh3("cube.mesh");
+    plot(cb, wait = true);
+    cout << labels(cb) << endl;
+    
+    cb = trunc(cb, true, split = 2);
+    plot(cb, wait = true);
+    
+    cb = trunc(cb, x < 0.0);
+    plot(cb, wait = true);
+}

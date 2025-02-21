@@ -1,0 +1,9 @@
+//  FreeFem++ .\example1.edp -v 0
+int myInteger = 4;
+real myDouble = 4.0;
+complex myComplexDouble = myDouble + 1i * myInteger;
+cout << myComplexDouble << endl;
+
+string foo;
+foo = "bar";
+cout << foo << endl;
