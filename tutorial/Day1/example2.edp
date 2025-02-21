@@ -4,7 +4,7 @@
 }
 
 {
-    mesh sq = square(10, 100, [x, 4 * y]);
+    mesh sq = square(10, 4*10, [x, 4 * y]);
     plot(sq, wait = true);
 }
 

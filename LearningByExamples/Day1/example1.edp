@@ -1,0 +1,12 @@
+load "msh3"// buildlayer
+load "medit"// medit
+// new method
+{
+    //  order:  x=0,x=1,y=0,y=1,z=0,z=1
+    int[int] ls = [1,1,1,1,1,2];
+	//  2 on on the top face and 1 in 5 other faces
+    mesh3 Th=cube(8,8,8,label=ls,[x,y,z]);
+    // label 3 on new faces
+    Th= trunc(Th,((x<0.5) |(y< 0.5)| (z<0.5)),label=3);
+    medit("cube",Th);
+}

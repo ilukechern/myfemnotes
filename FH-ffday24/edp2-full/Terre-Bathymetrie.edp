@@ -1,0 +1,138 @@
+load "ppm2rnm"
+load "msh3"
+load "medit"
+load "mmg"
+include "MeshSurface.idp"
+// https://neo.gsfc.nasa.gov/view.php?datasetId=GEBCO_BATHY
+// https://neo.gsfc.nasa.gov/servlet/RenderData?si=189313&cs=rgb&format=PNG&width=3600&height=1800
+// Parameters
+bool wait = false;
+int pourcent = 100;
+real hsizekm  = 30 ; // Km  
+real hsize=2*pi*hsizekm*pourcent/100./40000;// rad. 
+exec("open /Users/hecht/work/Cours/Cours-FF/2023/edp2-full/BTC.pgm"); 
+string figName = "/Users/hecht/work/Cours/Cours-FF/2023/edp2-full/BTC.pgm";
+//exec("convert  -resize "+pourcent+"% BTC.pgm BTC2.pgm");//  to go fast ..
+//exec("convert Carte2.pgm	 "+figName);
+// Read PPM (method 1)
+real[int, int] img0(figName); //Read image and set to an array
+int nx = img0.n, ny = img0.m;
+cout << " img0  "   << img0.min <<  " " << img0.max << endl;
+
+
+// pas en profondeur environ 31m. 
+// clean aliasing
+for [i,j,mij:img0]
+   if(mij>0) mij=(1-mij)*8000;
+   else mij = -0.1;
+//  pour aller vite on divise par 2 
+ int nnx=nx/2, nny=ny/2;
+ real[int, int] img1(nnx,nny);
+ for [i,j,mij:img1]
+ {
+	 int i1 = i*2;
+	 int i2 = i*2+1;
+	 int j1 = j*2;
+	 int j2 = j*2+1;
+	 
+	 mij = (img0(i1,j1)+img0(i2,j2))/2;
+ }
+  nx = img1.n;
+  ny = img1.m;
+cout << " size = "<< nx << " "<< ny << endl;  
+   
+mesh Th1 = square(nx-1, ny-1, [pi*2*(nx-1)*(x)/(nx-1)-pi, pi*(ny-1)*(1-y)/(ny-1)-pi/2]);
+real[int] bb(4);
+boundingbox(Th1,bb);
+cout << " bb = " << bb << endl; 
+fespace Vh1(Th1,P1);
+Vh1 c3=img1;
+cout << " C3 bound  "   << c3[].min <<  " " << c3[].max << endl;
+
+plot(c3,wait=0);
+real R=1; 
+
+func rr = dist(x,y); func theta= atan(z,max(rr,1e-8)); func phi = atan(y,x);
+func X = R*cos(x)*cos(y); func Y = R*cos(y)*sin(x); func Z = R*sin(y);
+
+real Risoex= 0.5*sqrt(2.+sqrt(1+sqrt(5.))/2);// triangle size 1. 
+real areaT = hsize*hsize*sqrt(3)/2.;
+real areaS= 4*pi*R*R;
+int nn = (R*Risoex/hsize); // sqrt(areaS/areaT/20.); 
+cout << "nn=" <<nn << " ~ " << (2*pi*R*Risoex/5)/hsize << " " << R*Risoex/hsize<<  endl; 
+meshS Th=change(Sphere20(1.,nn,1,0),fregion=0,flabel=0,rmInternalEdges=1);// sphere of  Raduis 1  
+fespace Vh(Th,P1); 	
+Vh v;
+Vh car=c3(phi,theta); 
+plot(car,wait=0);
+Th=mmgs(Th,metric=car[],ls=0.,iso=1);
+car=c3(phi,theta); // car = car tres tres lent => bug !!!!!!
+//plot(Th,g=1);
+
+
+savemesh(Th,"BT.mesh");
+{
+	ofstream ff("BT.txt");
+	ff << car[] << endl;
+}	
+plot(car,wait=0,cmm="carte et fin!!!");
+
+{
+	fespace Ph(Th,P0);
+	Ph reg=region;
+	//plot(reg, wait=1);
+	int[int] rgs = regions(Th);
+	cout << regions(Th);
+	cout << labels(Th);
+	real s0=int2d(Th,rgs[0])(1.);
+	real s1=int2d(Th,rgs[1])(1.);
+	int r0= (s0 > s1) ? rgs[0] : rgs[1];// ocean !!!!
+	int r1= (s0 < s1) ? rgs[0] : rgs[1];// ocean !!!!
+	//fespace Vh(Th,P1); 
+	macro Grad3(u) [dx(u),dy(u),dz(u)]  // EOM
+
+	//with variational form
+	real sigma = 0;//   
+	varf aS(u,v) = int2d(Th,r0)(car*Grad3(u)'*Grad3(v)) +int2d(Th,r1)(1e6*u*v)+ on(10,u=0);
+	varf mS(u,v) = int2d(Th,r0)(car* u*v)+ int2d(Th)( 1e-5*u*v);
+
+	// tring to defined a continous Normal: (P2 projection of True Normal)
+	Vh Nx,Ny,Nz; // Normal P1 
+	{
+	Vh Mx,My,Mz;
+	solve Pn([Nx,Ny,Nz],[Mx,My,Mz],solver=CG) = int2d(Th)( [Nx,Ny,Nz]'*[Mx,My,Mz])- int2d(Th)([Ns.x,Ns.y,Ns.z]'*[Mx,My,Mz]); 
+	}
+	verbosity=1;
+	matrix A =aS(Vh,Vh,eps=1e-10);
+	matrix B =mS(Vh,Vh,solver=CG);
+	int nev=20;  // number of computed eigen valeu close to sigma
+
+	real[int] ev(nev); // to store nev eigein value
+	Vh[int] eV(nev);   // to store nev eigen vector
+
+
+	int k=EigenValue(A,B,sym=true,sigma=sigma,value=ev,vector=eV); // which="LM" default 
+	verbosity=0; 
+	meshS Thm=Th;
+	fespace Vhm(Thm,P1); 
+	Vh sm=0; 
+	for (int i=0;i<k;i++) 
+	{
+		cout << i<< " VP: " << ev[i] << endl; 
+		real cc = 0.5/(eV[i][].linfty*5);
+	        Thm= movemesh(Th,[x+Nx*eV[i]*cc,y+Ny*eV[i]*cc,z+Nz*eV[i]*cc]);	
+		Vhm um; um[]=eV[i][];
+		sm[] += (1./ev[i])*um[];
+		plot(um,fill=1,cmm="Eigen  Vector "+i+" valeur =" + ev[i]  ,wait=1, nbiso=40);
+	}
+	real cc = 1/(sm[].linfty*5);
+	//Thm= movemesh(Th,[x+Nx*sm*cc,y+Ny*sm*cc,z+Nz*sm*cc]);	
+	meshS Tho=trunc(Th,region==3); //
+	meshS Tht=change(trunc(Th,region!=3),fregion=0); //
+	fespace Vho(Tho,P1); 
+	Vho um; um=sm;
+
+	plot(um,Tht,fill=1,nbiso=40);
+	medit("sm",Th,sm);
+
+}
