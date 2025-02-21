@@ -1,4 +1,4 @@
-int nn = 1200;
+int nn = 3200;
 
 int[int] ls = [1, 1, 1, 1, 1, 1];
 mesh Th = square(nn, nn, label=ls);
@@ -33,6 +33,8 @@ A = vPoisson(Vh, Vh);
 real[int] rhs = vPoisson(0, Vh);
 
 Vh sol;
+set(A, sparams = "-pc_type hypre -ksp_monitor");
+// set(A, sparams = "-pc_type hpddm -pc_hpddm_levels_1_eps_nev 20 -pc_hpddm_levels_1_sub_pc_type lu -pc_hpddm_define_subdomains -pc_hpddm_has_neumann -pc_hpddm_coarse_p 2 -ksp_monitor");
 sol[] = A^-1 * rhs;
 // plotD(Th, sol, cmm="disp");
 
