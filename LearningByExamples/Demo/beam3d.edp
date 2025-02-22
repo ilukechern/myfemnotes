@@ -1,0 +1,63 @@
+// NBPROC 4
+// PARAM -v 0 -wg -ns -ksp_monitor
+load "PETSc"
+macro dimension()3 // EOM
+include "macro_ddm.idp"
+macro def(u)[u, u#B, u#C] // EOM
+macro init(u)[u, u, u] // EOM
+
+real Sqrt = sqrt(2.0);
+macro epsilon(u)[dx(u), dy(u#B), dz(u#C), (dz(u#B) + dy(u#C)) / Sqrt, (dz(u) + dx(u#C)) / Sqrt, (dy(u) + dx(u#B)) / Sqrt]// EOM
+macro div(u)(dx(u) + dy(u#B) + dz(u#C))// EOM
+
+int[int] ls = [3, 2, 3, 1, 3, 3];
+int nn = 20;
+mesh3 Th = cube(24*nn, nn, nn, [24*x, y, z], label=ls);
+
+if(mpirank == 0)
+{
+    cout << "total of elements: " << Th.nt << endl;
+}
+
+real E = 210;
+real sigma = 0.3;
+
+real mu = E/(2*(1+sigma));
+real lambda = E*sigma/((1+sigma)*(1-2*sigma));
+real f = -9.8;
+
+varf vLame(def(u), def(v))  = int3d(Th)(
+                                  lambda * div(u) * div(v) 
+                                + 2.0 * mu * (epsilon(u)' * epsilon(v))
+                                )
+                            + int3d(Th)(f * vC)
+                            + on(1, u = 0.0, uB = 0.0, uC = 0.0);
+
+func Pk = [P1, P1, P1];
+
+Mat A;
+MatCreate(Th, A, Pk);
+
+cout << "rank {" + mpirank +"} has " + Th.nt << " elements" << endl;
+
+fespace Vh(Th, Pk);
+Vh def(uh);
+
+A = vLame(Vh, Vh, tgv=-2);
+
+real[int] rhs = vLame(0, Vh, tgv=-2);
+
+Vh<real> def(Rb)[6];
+[Rb[0], RbB[0], RbC[0]] = [1, 0, 0];
+[Rb[1], RbB[1], RbC[1]] = [0, 1, 0];
+[Rb[2], RbB[2], RbC[2]] = [0, 0, 1];
+[Rb[3], RbB[3], RbC[3]] = [y, -x, 0];
+[Rb[4], RbB[4], RbC[4]] = [-z, 0, x];
+[Rb[5], RbB[5], RbC[5]] = [0, z, -y];
+set(A, sparams = "-pc_type gamg -ksp_type cg -ksp_max_it 2000 -ksp_rtol 1e-20", nearnullspace = Rb);
+uh[] = 0;
+uh[] = A^-1 * rhs;
+
+int[int] Order = [1];
+savevtk("./output/beam3d.vtu", Th, def(uh), order=Order);
+

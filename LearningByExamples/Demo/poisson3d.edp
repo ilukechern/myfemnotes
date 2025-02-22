@@ -1,0 +1,45 @@
+// NBPROC 12
+// PARAM -v 0 -wg -ns -ksp_monitor
+include "cube.idp"
+
+int nn = 120;
+int[int] ls = [1, 1, 1, 1, 1, 1];
+mesh3 Th = cube(nn, nn, nn, label=ls);
+
+if(mpirank == 0)
+{
+    cout << Th.nt << endl;
+}
+
+func f = 3.0*pi^2*sin(pi*x)*sin(pi*y)*sin(pi*z);
+
+macro grad(u) [dx(u), dy(u), dz(u)] // EOM
+
+varf vPoisson(u, v) = int3d(Th) (grad(u)' * grad(v))
+                    + int3d(Th) (f*v)
+                    + on(1, u=0)
+                    ;
+
+load "PETSc"
+macro dimension 3// EOM
+include "macro_ddm.idp"
+
+fespace Vh(Th, P1);
+
+Mat A;
+MatCreate(Th, A, P1);
+
+cout << "rank {" + mpirank +"} has " + Th.nt << " elements" << endl;
+
+A = vPoisson(Vh, Vh);
+
+real[int] F = vPoisson(0, Vh);
+
+Vh u;
+
+set(A, sparams = "-pc_type hypre -ksp_max_it 50 -ksp_rtol 1e-18");
+u[] = A^-1 * F;
+
+int[int] fforder = [1];
+savevtk("./output/poisson.vtu", Th, u, dataname="u", order=fforder);
+

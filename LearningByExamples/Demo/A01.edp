@@ -1,0 +1,23 @@
+// NBPROC 4
+// PARAM -v 0 -wg -ns
+int nn = 100;
+
+border edge(t=0, 2*pi)
+{
+    x=cos(t);
+    y=sin(t);
+    label=1;
+}
+
+mesh Th = buildmesh(edge(nn));
+
+// load "metis"
+load "scotch"
+
+fespace Ph(Th, P0);
+Ph pmsh;
+
+// metisdual(pmsh[], Th, mpisize);
+scotch(pmsh[], Th, mpisize);
+
+plot(pmsh, cmm ="Total " + mpisize + " subdomains");

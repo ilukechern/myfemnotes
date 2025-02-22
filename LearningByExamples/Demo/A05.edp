@@ -1,0 +1,48 @@
+// NBPROC 1
+// PARAM -v 0 -wg -ns -ksp_monitor
+load "Morley"
+include "macro_ddm.idp"
+load "PETSc"
+
+mesh ThGlobal = square(100, 100);
+mesh Th = square(100, 100);
+fespace WhGlobal(ThGlobal, P2Morley);
+fespace VhGlobal(ThGlobal, P1);
+WhGlobal [uG, uGx, uGy] = [x^2, y^2, x^2+y^2];
+VhGlobal pG = x + y;
+int[int] n2o;
+macro ThN2O()n2o//
+buildDmesh(Th);
+fespace Wh(Th, P2Morley);
+fespace Vh(Th, P1);
+Wh [u, ux, uy] = [x^2, y^2, x^2+y^2];
+Vh p = x + y;
+int[int] restWh = restrict(Wh, WhGlobal, n2o);
+int[int] restVh = restrict(Vh, VhGlobal, n2o);
+{
+    Mat A;
+    createMat(Th, A, P2); // trick => use P2, not P2Morley!
+    real[int] tmp;
+    ChangeNumbering(A, u[], tmp);
+    ChangeNumbering(A, u[], tmp, inverse = true);
+    WhGlobal [reducex, reducey, reducez];
+    WhGlobal [beforex, beforey, beforez];
+    for[i, v : restWh] beforex[][v] = u[][i];
+    mpiReduce(beforex[], reducex[], processor(0, mpiCommWorld), mpiSUM);
+    uG[] -= reducex[];
+    if(mpirank == 0) assert(uG[].l2 < 1.0e-12);
+}
+{
+    Mat A;
+    createMat(Th, A, P1);
+    real[int] tmp;
+    ChangeNumbering(A, p[], tmp);
+    ChangeNumbering(A, p[], tmp, inverse = true);
+    VhGlobal reduce;
+    VhGlobal before;
+    before[] = 0;
+    for[i, v : restVh] before[][v] = p[][i];
+    mpiReduce(before[], reduce[], processor(0, mpiCommWorld), mpiSUM);
+    pG[] -= reduce[];
+    if(mpirank == 0) assert(pG[].l2 < 1.0e-12);
+}

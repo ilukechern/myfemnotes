@@ -1,0 +1,52 @@
+// NBPROC 4
+// PARAM -v 0 -wg -ns -ksp_monitor
+int nn = 200;
+
+/*
+border edge(t=0, 2*pi)
+{
+    x=cos(t);
+    y=sin(t);
+    label=1;
+}
+
+mesh Th = buildmesh(edge(nn));
+*/
+int[int] ls = [1, 1, 1, 1];
+mesh Th = square(nn, nn, label=ls);
+
+if(mpirank == 0)
+{
+    cout << Th.nt << endl;
+}
+
+// func f = 1.0;
+func f = 2.0*pi^2*sin(pi*x)*sin(pi*y);
+
+varf vPoisson(u, v) = int2d(Th) (dx(u)*dx(v)+dy(u)*dy(v))
+                    + int2d(Th) (f*v)
+                    + on(1, u=0)
+                    ;
+
+load "PETSc"
+include "macro_ddm.idp"
+
+fespace Vh(Th, P1);
+
+Mat A;
+MatCreate(Th, A, P1);
+
+// plotDmesh(Th, cmm="Distributed mesh");
+cout << "rank {" + mpirank +"} has " + Th.nt << " elements" << endl;
+
+A = vPoisson(Vh, Vh);
+
+real[int] F = vPoisson(0, Vh);
+
+Vh u;
+
+set(A, sparams = "-pc_type hypre -ksp_max_it 50 -ksp_rtol 1e-18");
+u[] = A^-1 * F;
+
+int[int] fforder = [1];
+savevtk("./output/poisson.vtu", Th, u, dataname="u", order=fforder);

@@ -1,0 +1,41 @@
+// NBPROC 4
+// PARAM -v 0 -wg -ns -ksp_monitor
+load "PETSc"
+macro dimension()3// EOM
+include "macro_ddm.idp"
+
+macro def(i)[i, i#B, i#C]// EOM
+macro init(i)[i, i, i]// EOM
+//real Sqrt = sqrt(2.0);
+//macro epsilon(u)[dx(u), dy(u#B), dz(u#C), (dz(u#B) + dy(u#C)) / Sqrt, (dz(u) + dx(u#C)) / Sqrt, (dy(u) + dx(u#B)) / Sqrt]// EOM
+//macro div(u)(dx(u) + dy(u#B) + dz(u#C))// EOM
+func Pk = [P1, P1, P1];
+
+
+int[int] LL = [2,3, 2,1, 2,2];
+int nn = 8;
+mesh3 Th = cube(10*nn, nn, nn, [10 * x, y, z], label = LL);
+Mat A;
+MatCreate(Th, A, Pk);
+
+/*
+real f = -9000.0;
+real strain = 100.0;
+
+real Young = 1.0e8;
+real poisson = 0.45;
+real tmp = 1.0 + poisson;
+real mu = Young  / (2.0 * tmp);
+real lambda = Young * poisson / (tmp * (1.0 - 2.0 * poisson));
+
+varf vPb(def(u), def(v)) = int3d(Th)(lambda * div(u) * div(v) + 2.0 * mu * (epsilon(u)' * epsilon(v))) + int3d(Th)(f * vC) + on(1, u = 0.0, uB = 0.0, uC = 0.0);
+fespace Wh(Th, Pk);                 // local finite element space
+matrix Loc = vPb(Wh, Wh);
+real[int] rhs = vPb(0, Wh);
+
+set(A, sparams = "-ksp_view -ksp_max_it 100", bs = 3);
+Wh<real> def(u);
+
+A = Loc;
+u[] = A^-1 * rhs;
+*/

@@ -1,0 +1,25 @@
+// NBPROC 4
+// PARAM -v 0 -wg -ns -ksp_monitor
+include "cube.idp"
+
+int nn = 8;
+int[int] ls = [1, 1, 1, 1, 1, 1];
+mesh3 Th = cube(nn, nn, nn, label=ls);
+
+if(mpirank == 0)
+{
+    cout << Th.nt << endl;
+}
+
+macro dimension 3// EOM
+include "macro_ddm.idp"
+
+DmeshCreate(Th);
+
+cout << "rank {" + mpirank +"} has " + Th.nt << " elements" << endl;
+
+if(0)
+{
+    load "medit"
+    medit("mesh", Th);
+}
